@@ -43,17 +43,31 @@ Once the data is loaded into Fuseki, you can use Jena's powerful [full text sear
 ## Contact
 
 Dr. Lewis John McGibbney Ph.D., B.Sc.(Hons)
+
 Enterprise Search Technologist
+
 Web and Mobile Application Development Group (172B)
+
 Application, Consulting, Development and Engineering Section (1722)
+
 Info & Engineering Technology Planning and Development Division (1720)
+
 Jet Propulsion Laboratory
+
 California Institute of Technology 
+
 4800 Oak Grove Drive
+
 Pasadena, California 91109-8099
+
 Mail Stop : 600-172A
+
 Tel:  (+1) (818)-393-7402
+
 Cell: (+1) (626)-487-3476
+
 Fax:  (+1) (818)-393-1190
+
 Email: lewis.j.mcgibbney@jpl.nasa.gov
+
 ORCID: orcid.org/0000-0003-2185-928X
