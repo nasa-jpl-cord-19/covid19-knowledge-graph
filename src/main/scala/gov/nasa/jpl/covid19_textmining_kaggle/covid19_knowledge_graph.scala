@@ -96,17 +96,18 @@ object covid19_knowledge_graph {
       println(extractions.mkString)
       val iterator = extractions.iterator
       while (iterator.hasNext) {
-        val uuid = randomUUID().toString
-        val extractionResource = model.createResource(COVID_NS + uuid,
-          ResourceFactory.createResource(model.expandPrefix("covid:Extraction")))
-        extractionResource.addProperty(
-          ResourceFactory.createProperty(model.expandPrefix("covid:extractedFrom")),
-          ResourceFactory.createProperty(model.expandPrefix(s"covid:$paperId")))
-        //println(iterator.next.toJSONString)
         val extractionArray = iterator.next.asInstanceOf[JSONArray]
         val extractionIterator = extractionArray.iterator
-        val counter = 0
         while (extractionIterator.hasNext) {
+          val uuid = randomUUID().toString
+          val extractionResource = model.createResource(COVID_NS + uuid,
+            ResourceFactory.createResource(model.expandPrefix("covid:Extraction")))
+          extractionResource.addProperty(
+            ResourceFactory.createProperty(model.expandPrefix("covid:wasExtractedFrom")),
+            ResourceFactory.createProperty(model.expandPrefix(s"covid:$paperId")))
+          extractionResource.addProperty(
+            ResourceFactory.createProperty(model.expandPrefix("schema:isPartOf")),
+            ResourceFactory.createProperty(model.expandPrefix(s"covid:$uuidG")))
           val extractionObj = extractionIterator.next().asInstanceOf[JSONObject]
           val confidence = java.lang.Double.toString(extractionObj.get("confidence").asInstanceOf[Double])
           extractionResource.addProperty(
