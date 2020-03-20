@@ -12,7 +12,10 @@ lazy val root = (project in file("."))
       ("org.apache.jena" % "jena-core" % "3.14.0").exclude("org.slf4j", "slf4j-log4j12"),
       "org.apache.jena" % "jena-tdb" % "3.14.0",
       "org.slf4j" % "slf4j-nop" % "1.7.25",
-      "com.googlecode.json-simple" % "json-simple" % "1.1.1"
+      "com.googlecode.json-simple" % "json-simple" % "1.1.1",
+      //"org.scalaj" % "scalaj-http_2.13" % "2.4.2"
+      "org.apache.httpcomponents" % "httpclient" % "4.5.12",
+      "com.ibm.icu" % "icu4j" % "66.1"
     )
   )
 
