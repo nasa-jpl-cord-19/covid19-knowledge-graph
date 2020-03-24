@@ -24,6 +24,8 @@ Launch sbt:
 
 ## Running
 
+### From sbt
+
 Launch sbt:
 
     $ sbt
@@ -31,6 +33,16 @@ Launch sbt:
 Run the program with an argument indicating the input `data` directory containing the dataset:
 
     > run path/to/data/containing/Commercial use subset json files
+
+### As a standalone JAR
+
+First `assemble` the JAR
+
+	$ sbt assembly
+
+... then run jar via `java`
+
+	$ java -jar ./target/scala-2.13/covid19_knowledge_graph-assembly-0.1.0-SNAPSHOT.jar
 
 ## Output
 
