@@ -4,12 +4,32 @@ import java.util.Locale
 import java.util.UUID.randomUUID
 
 import com.ibm.icu.text.BreakIterator
-import gov.nasa.jpl.covid19_knowledge_graph.covid19_knowledge_graph.{COVID_NS}
+import gov.nasa.jpl.covid19_knowledge_graph.covid19_knowledge_graph.COVID_NS
 import org.apache.jena.datatypes.xsd.XSDDatatype
+import org.apache.jena.query.text.{EntityDefinition, TextDatasetFactory, TextIndexConfig}
+import org.apache.jena.query.{DatasetFactory, ReadWrite}
 import org.apache.jena.rdf.model.{Model, RDFNode, ResourceFactory}
+import org.apache.jena.vocabulary.RDFS
+import org.apache.lucene.store.{ByteBuffersDirectory, NIOFSDirectory}
 import org.json.simple.{JSONArray, JSONObject}
 
 object jena_resources {
+
+  def createTextSearchDataset(model: Model, file: String) = {
+    // Base data
+    val ds1 = DatasetFactory.create(model)
+    // Define the index mapping
+    val entDef = new EntityDefinition("uri", "text")
+    entDef.setPrimaryPredicate(RDFS.label.asNode)
+    // Lucene, in memory.
+    val dir = new NIOFSDirectory(java.nio.file.Paths.get("."));
+    // Join together into a dataset
+    val ds = TextDatasetFactory.createLucene(ds1, dir, new TextIndexConfig(entDef))
+    ds.begin(ReadWrite.WRITE)
+    ds.commit()
+    ds.end()
+  }
+
 
   def getSentences(text: String): List[String] = {
     var sentences: List[String] = List()

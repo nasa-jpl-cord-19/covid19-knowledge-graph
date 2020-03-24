@@ -2,3 +2,6 @@
 *.log
 target
 .idea
+covid19_knowledge_graph.ttl
+segments_1
+write.lock

@@ -37,9 +37,14 @@ object covid19_knowledge_graph {
       loadJSONFromFile(file) foreach { json =>
         jena_resources.createPaperResource(json, model)
       }
+
+      //write to local file covid19_knowledge_graph.ttl
       val outFile = new BufferedWriter(new FileWriter(new File("covid19_knowledge_graph.ttl")))
       RDFDataMgr.write(outFile, model, org.apache.jena.riot.RDFFormat.TURTLE_PRETTY)
       outFile.close()
+
+      // Build a text search dataset
+      jena_resources.createTextSearchDataset(model, "covid19_knowledge_graph.ttl")
     }
 
     def loadJSONFromFile(file: File): Option[JSONObject] = {
