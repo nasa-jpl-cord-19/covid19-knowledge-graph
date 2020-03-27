@@ -32,7 +32,7 @@ Launch sbt:
 
 Run the program with an argument indicating the input `data` directory containing the dataset:
 
-    > run path/to/data/containing/Commercial use subset json files
+    > run /path/to/directory/containing/individual/CORD-19_files /path/to/directory/containing/individual/annie_extra ction_files
 
 ### As a standalone JAR
 

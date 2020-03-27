@@ -5,13 +5,15 @@ import java.util.UUID.randomUUID
 
 import com.ibm.icu.text.BreakIterator
 import gov.nasa.jpl.covid19_knowledge_graph.covid19_knowledge_graph.COVID_NS
+import org.apache.jena.atlas.json.JsonNull
 import org.apache.jena.datatypes.xsd.XSDDatatype
 import org.apache.jena.query.text.{EntityDefinition, TextDatasetFactory, TextIndexConfig}
 import org.apache.jena.query.{DatasetFactory, ReadWrite}
-import org.apache.jena.rdf.model.{Model, RDFNode, ResourceFactory}
+import org.apache.jena.rdf.model.{Model, RDFNode, Resource, ResourceFactory}
 import org.apache.jena.vocabulary.RDFS
-import org.apache.lucene.store.{ByteBuffersDirectory, NIOFSDirectory}
+import org.apache.lucene.store.NIOFSDirectory
 import org.json.simple.{JSONArray, JSONObject}
+import util.control.Breaks._
 
 object jena_resources {
 
@@ -28,8 +30,8 @@ object jena_resources {
     ds.begin(ReadWrite.WRITE)
     ds.commit()
     ds.end()
+    dir.close()
   }
-
 
   def getSentences(text: String): List[String] = {
     var sentences: List[String] = List()
@@ -51,7 +53,7 @@ object jena_resources {
   def createExtractionGroup(model: Model, sentenceIterator: Iterator[String], paperId: String): RDFNode = {
     val uuidG = randomUUID().toString
     val extractionGroupResource = model.createResource(COVID_NS + uuidG,
-      ResourceFactory.createResource(model.expandPrefix("covid:ExtractionGroup")))
+      ResourceFactory.createResource(model.expandPrefix("covid:OpenIEExtractionGroup")))
     extractionGroupResource.addProperty(
       ResourceFactory.createProperty(model.expandPrefix("schema:isPartOf")),
       ResourceFactory.createProperty(model.expandPrefix(s"covid:$paperId")))
@@ -62,7 +64,6 @@ object jena_resources {
         .replaceAll("[^\\x00-\\x7F]", "")
       if(sentence.contains(" ")){
         val extractions = openie_operations.postTextToOpenIE(sentence)
-        println(extractions.mkString)
         val iterator = extractions.iterator
         while (iterator.hasNext) {
           val extractionArray = iterator.next.asInstanceOf[JSONArray]
@@ -70,7 +71,7 @@ object jena_resources {
           while (extractionIterator.hasNext) {
             val uuid = randomUUID().toString
             val extractionResource = model.createResource(COVID_NS + uuid,
-              ResourceFactory.createResource(model.expandPrefix("covid:Extraction")))
+              ResourceFactory.createResource(model.expandPrefix("covid:OpenIEExtraction")))
             extractionResource.addProperty(
               ResourceFactory.createProperty(model.expandPrefix("covid:wasExtractedFrom")),
               ResourceFactory.createProperty(model.expandPrefix(s"covid:$paperId")))
@@ -78,6 +79,10 @@ object jena_resources {
               ResourceFactory.createProperty(model.expandPrefix("schema:isPartOf")),
               ResourceFactory.createProperty(model.expandPrefix(s"covid:$uuidG")))
             val extractionObj = extractionIterator.next().asInstanceOf[JSONObject]
+            val sentence = extractionObj.get("sentence").asInstanceOf[String]
+            extractionResource.addProperty(
+              ResourceFactory.createProperty(model.expandPrefix("covid:hasSentence")),
+              ResourceFactory.createLangLiteral(sentence, "en"))
             val confidence = java.lang.Double.toString(extractionObj.get("confidence").asInstanceOf[Double])
             extractionResource.addProperty(
               ResourceFactory.createProperty(model.expandPrefix("covid:hasConfidence")),
@@ -173,13 +178,66 @@ object jena_resources {
     authorsResource
   }
 
-  def createPaperResource(json: JSONObject, model: Model) {
+  def createAnnieExtractions(aFileJSON: JSONObject, model: Model, paperResource: Resource) = {
+    val iterator = aFileJSON.keySet.iterator
+    while (iterator.hasNext) {
+      val key = iterator.next.asInstanceOf[String]
+      breakable {
+        if ("abstract" == key ||
+          "body_text" == key ||
+          "sha" == key) {
+          break
+        }
+        if (aFileJSON.get(key) != null) {
+          checkType(key, aFileJSON.get(key), model, paperResource)
+        }
+      }
+    }
+  }
+
+  def processString(key: String, fieldValue: String, model: Model, paperResource: Resource) = {
+    if (fieldValue.startsWith("http")) {
+      paperResource.addProperty(ResourceFactory.createProperty(
+        model.expandPrefix(s"covid:$key")), fieldValue)
+    } else {
+      paperResource.addProperty(ResourceFactory.createProperty(
+        model.expandPrefix(s"covid:$key")), fieldValue, "en")
+    }
+  }
+
+  def processArray(key: String, fieldValue: JSONArray, model: Model, paperResource: Resource) = {
+    val fieldIterator = fieldValue.iterator
+    while (fieldIterator.hasNext) {
+      paperResource.addProperty(
+        ResourceFactory.createProperty(model.expandPrefix(s"covid:$key")),
+        fieldIterator.next.asInstanceOf[String], "en")
+    }
+  }
+
+  def processBoolean(key: String, boolean: Boolean, model: Model, paperResource: Resource) = {
+    paperResource.addProperty(
+      ResourceFactory.createProperty(model.expandPrefix(s"covid:$key")),
+      ResourceFactory.createTypedLiteral(java.lang.Boolean.toString(boolean), XSDDatatype.XSDboolean))
+  }
+
+  def checkType[T](key: String, fieldValue: T, model: Model, paperResource: Resource) = fieldValue match {
+    case _: String    => processString(key, fieldValue.asInstanceOf[String], model, paperResource)
+    case _: JSONArray => processArray(key, fieldValue.asInstanceOf[JSONArray], model, paperResource)
+    case _: Boolean => processBoolean(key, fieldValue.asInstanceOf[Boolean], model, paperResource)
+    case e: Exception =>
+      println(s"ERROR: ${e.getMessage}")
+      None
+  }
+
+  def createPaperResource(json: JSONObject, model: Model, aFileJSON:  JSONObject) {
     val paperId = json.get("paper_id").asInstanceOf[String]
     val paperResource = model.createResource(COVID_NS + paperId,
       ResourceFactory.createResource(model.expandPrefix("schema:ScholarlyArticle")))
     paperResource.addProperty(ResourceFactory.createProperty(
       model.expandPrefix("rdf:type")), ResourceFactory.createProperty(
       model.expandPrefix("owl:NamedIndividual")))
+
+    createAnnieExtractions(aFileJSON, model, paperResource)
 
     val metadata = json.get("metadata").asInstanceOf[JSONObject]
     val title = metadata.get("title").asInstanceOf[String]
@@ -201,8 +259,11 @@ object jena_resources {
     val bodyTextArray = json.get("body_text").asInstanceOf[JSONArray]
     val bodyIterator = bodyTextArray.iterator
     while (bodyIterator.hasNext) {
-      val section = bodyIterator.next.asInstanceOf[JSONObject]
-      val sectionText = section.get("text").asInstanceOf[String]
+      val sectionObj = bodyIterator.next.asInstanceOf[JSONObject]
+      val section = sectionObj.get("section").asInstanceOf[String]
+      paperResource.addProperty(ResourceFactory.createProperty(
+        model.expandPrefix("schema:articleSection")), title, "en")
+      val sectionText = sectionObj.get("text").asInstanceOf[String]
       //the section text is huge and really bloats the file.
       //          paperResource.addProperty(ResourceFactory.createProperty(
       //            model.expandPrefix("schema:text")), sectionText, "en")
@@ -210,8 +271,7 @@ object jena_resources {
       val sentenceIterator = sentences.iterator
       val extractionGroup = createExtractionGroup(model, sentenceIterator, paperId)
       paperResource.addProperty(ResourceFactory.createProperty(
-        model.expandPrefix("covid:hasExtractionGroup")), extractionGroup)
+        model.expandPrefix("covid:hasOpenIEExtractionGroup")), extractionGroup)
     }
   }
-
 }

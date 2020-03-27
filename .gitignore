@@ -1,3 +1,4 @@
+*.swp
 *.class
 *.log
 target
@@ -5,3 +6,4 @@ target
 covid19_knowledge_graph.ttl
 segments_1
 write.lock
+data/*
